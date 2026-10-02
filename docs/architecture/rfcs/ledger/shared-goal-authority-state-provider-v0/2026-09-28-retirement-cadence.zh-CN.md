@@ -403,6 +403,15 @@ Archive restore／audit 已使用 provider 通用的 1–64 个操作批量回�
 测量，不是相同完整性工作下的 provider 比较、整次恢复延迟、冷读或 D2／默认项
 验收。File 每恢复一笔仍重写保留的文件；此前一次完整历史恢复超出调用方的
 300 秒超时，随后才发布精确匹配的确认。批量回执优化没有闭合这项恢复成本。
+下一项已测量的 File 改动，在一个 checkpoint 窗口内复用 `AuthorityStateReplay`，
+不再为每条历史重建重放器、重新规范化未变化的完整状态。非可信 metadata 仍经
+共享 transaction decoder，每条原始 revision、回执和最终 head 都保留校验。
+存储格式、缓存预算、writer 和公开 API 不变。macOS arm64／Node 24.21.0 上，
+同一份隔离的 2,107 笔 File 历史每组运行三个全新进程，冷读中位数从 35.6 降至
+25.9 秒，约减少 27%；完整 head、revision、cursor 一致。两组连续采样未清空
+OS 缓存，未控制其他进程负载，不代表 p95、provider 对比或完整恢复时间。
+完整文件重写与剩余 revision 哈希成本仍归原有恢复任务；这不闭合 D2／默认项
+或旧 writer 退役验收。
 #4224 的 soak 已启动；其最终证据和对当前候选的适用性仍待核对。
 
 ### 委派完成阶段的原租约衔接
