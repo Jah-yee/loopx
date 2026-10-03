@@ -1,4 +1,5 @@
 import {manageNewGoalStorage} from "./coordination/local_authority_defaults.ts";
+import {readCodexExecutionIdentity, matchExecutionDeclaration} from "./runtime/execution_identity.ts";
 import {deriveAgentOperationActor, managedOperationBindingCurrent, normalizeAgentOperationExecutor, planAgentOperationHandoff, projectAgentOperationInbox, projectManagedOperationTransport, resolveOperationSourceRoute} from "./work_items/operation_agent_handoff.ts";
 import {projectDecisionNotice, validateDecisionNoticeReferences} from "./presentation/decision_notice.ts";
 import {boundGoalAttention, projectGoalAttention} from "./presentation/goal_attention.ts";
@@ -39,7 +40,9 @@ import {setLocalHandoffMode, migrateLocalHandoffMode} from "./coordination/hando
 import {projectOwnershipObservation} from "./coordination/ownership_observation.ts";
 import {observeLocalCoordinationOwnership} from "./coordination/local_authority_runtime.ts";
 import {evaluateTaskLeaseOwnerEligibility} from "./work_items/task_lease_eligibility.ts";
-import { evaluateSubagentContext, describeSubagentContext } from "./subagent_context.ts";
+import { describeSubagentContext } from "./subagent_context.ts";
+import { evaluateGoalAgentContext } from "./goal_agent_context.ts";
+import { inspectImprovementPolicy, planImprovementConfiguration } from "./capabilities/goal_capability_organization.ts";
 import {
   effectIdsMatch,
   effectProgramFromOrderedSteps,
@@ -145,6 +148,10 @@ import {
   decideGoalRecreation,
   decideProjectSessionBind,
   decideProjectSessionUnbind,
+  decideSourceTurnEffectAbsentResolution,
+  decideSourceTurnEffectAdmission,
+  decideSourceTurnEffectGate,
+  decideSourceTurnEffectRelease,
 } from "./goals/source_session_lifetime.ts";
 import { decideFirstPartyHostRuntime } from "./goals/first_party_host_runtime.ts";
 import { decideChatSessionLifecycle } from "./goals/chat_session_lifecycle.ts";
@@ -241,7 +248,7 @@ import {
   normalizeManagerReturnDeliveryAttempt,
 } from "./collaboration/return_delivery.ts";
 import { decideCollaborationLifecycle } from "./collaboration/goal_instance_lifecycle.ts";
-import { inspectCollaborationInboxReceipts } from "./collaboration/inbox_receipts.ts";
+import { inspectCollaborationInboxReceipts, projectReceiverFollowthrough } from "./collaboration/inbox_receipts.ts";
 import { planCollaborationResult, collaborationResultDeliveryReady } from "./collaboration/result_publication.ts";
 import { selectObservedPeerHostRoute } from "./collaboration/peer_route_selection.ts";
 
@@ -569,6 +576,13 @@ export function createEffectRuntimeHandlers(
     ["goal.source_session.bind.decide", decideProjectSessionBind],
     ["goal.source_session.unbind.decide", decideProjectSessionUnbind],
     ["goal.source_session.recreate.decide", decideGoalRecreation],
+    ["goal.source_session.turn_effect.admit", decideSourceTurnEffectAdmission],
+    [
+      "goal.source_session.turn_effect.resolve_absent",
+      decideSourceTurnEffectAbsentResolution,
+    ],
+    ["goal.source_session.turn_effect.release", decideSourceTurnEffectRelease],
+    ["goal.source_session.turn_effect.gate", decideSourceTurnEffectGate],
     ["goal.first_party_host_runtime.decide", decideFirstPartyHostRuntime],
     ["goal.chat_session.lifecycle.decide", decideChatSessionLifecycle],
     ["goal.acceptance.inspect", inspectLocalGoalAcceptance],
@@ -730,7 +744,15 @@ export function createEffectRuntimeHandlers(
     ],
     [
       "capability_hook.agent_context.project",
-      (params) => evaluateSubagentContext(params),
+      (params) => evaluateGoalAgentContext(params),
+    ],
+    [
+      "capability.improvement.inspect",
+      (params) => inspectImprovementPolicy(params.policy),
+    ],
+    [
+      "capability.improvement.configuration",
+      (params) => planImprovementConfiguration(params),
     ],
     [
       "capability_hook.interaction_projection.validate_registration",
@@ -787,9 +809,12 @@ export function createEffectRuntimeHandlers(
     ],
     ["collaboration.source_context.normalize", normalizeCollaborationSourceContext],
     ["collaboration.inbox.inspect_receipts", inspectCollaborationInboxReceipts],
+    ["collaboration.inbox.receiver_followthrough", projectReceiverFollowthrough],
     ["collaboration.result.plan_publication", planCollaborationResult],
     ["collaboration.result.delivery_ready", collaborationResultDeliveryReady],
     ["collaboration.peer_host_route.select", selectObservedPeerHostRoute],
+    ["runtime.execution_identity.codex", readCodexExecutionIdentity],
+    ["runtime.execution_identity.match", matchExecutionDeclaration],
     [
       "collaboration.goal_instance.decide",
       (params) => decideCollaborationLifecycle(params),
